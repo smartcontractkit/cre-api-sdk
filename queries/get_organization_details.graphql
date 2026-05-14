@@ -1,0 +1,10 @@
+query GetOrganizationDetails {
+  getOrganization {
+    organizationId
+    displayName
+    createdAt
+    updatedAt
+    restrictionStatus
+    activeStatus
+  }
+}

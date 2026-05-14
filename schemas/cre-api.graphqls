@@ -1,0 +1,826 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+scalar Time
+
+scalar ChainSelector
+
+scalar OnchainAddress
+
+scalar CredentialText
+
+scalar UUID
+
+scalar LabelText
+
+scalar Email
+
+scalar UserId
+
+scalar MemberId
+
+scalar OrganizationId
+
+scalar WorkflowId
+
+scalar CreditAmount
+
+scalar JSONObject
+
+scalar ResourceTypeWithGas
+
+"""
+Directive to verify that the caller is authenticated.
+
+Should be used for calls that do not use the auth context, but should still
+guard endpoints from unauthenticated calls.
+"""
+directive @isAuthenticated on FIELD_DEFINITION
+
+"""
+Directive to verify that the caller is a root account.
+
+Should be used on restricted root account only endpoints.
+"""
+directive @isRootAccount on FIELD_DEFINITION
+
+"""
+Directive to verify that the caller's organization is not gated.
+
+Should be used for calls that should only be open to accounts that have full closed beta access.
+"""
+directive @isUngatedOrganization on FIELD_DEFINITION
+
+"""
+Directive to verify that the caller's organization matches the values specified in the claim.
+
+Should be used for calls that need to be gated by claims.
+"""
+directive @hasClaim(claimName: String!, values: [String!]) on FIELD_DEFINITION
+
+directive @length(
+  min: Int
+  max: Int
+) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
+
+directive @size(
+  min: Int
+  max: Int
+) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
+
+type Query {
+  """
+  Account details
+  """
+  getAccountDetails: OrganizationAccount
+  """
+  Organization details
+  """
+  getOrganization: Organization
+  listOrganizationMembers(
+    memberFilters: OrganizationMemberFilters
+  ): [OrganizationAccount!]!
+  """
+  API keys
+  """
+  verifyApiKey(
+    apiKeyToken: CredentialText! @length(min: 1, max: 255)
+  ): VerifyApiKeyResponse!
+  listApiKeys(
+    apiKeyFilters: OrganizationApiKeyFilters!
+  ): [OrganizationApiKeyDetails!]!
+  """
+  Workflow owners
+  """
+  listWorkflowOwners(
+    filters: WorkflowOwnersFilters
+  ): ListWorkflowOwnersResponse!
+  """
+  Workflows
+  """
+  workflowActivity(input: WorkflowActivityInput!): WorkflowActivityOutput!
+  workflow(input: WorkflowInput!): WorkflowOutput!
+  workflows(input: WorkflowsInput!): WorkflowsOutput!
+  workflowDeployments(
+    input: WorkflowDeploymentsInput!
+  ): WorkflowDeploymentsOutput!
+  workflowDeployment(input: WorkflowDeploymentInput!): WorkflowDeploymentOutput!
+  workflowExecutions(input: WorkflowExecutionsInput!): WorkflowExecutionsOutput!
+  workflowExecution(input: WorkflowExecutionInput!): WorkflowExecutionOutput!
+  workflowExecutionLogs(
+    input: WorkflowExecutionLogsInput!
+  ): WorkflowExecutionLogsOutput!
+  workflowExecutionEvents(
+    input: WorkflowExecutionEventsInput!
+  ): WorkflowExecutionEventsOutput!
+  """
+  Billing
+  """
+  getWorkflowResourceConsumption(
+    filters: GetWorkflowResourceConsumptionFilters!
+    page: Page!
+  ): [WorkflowResourceConsumption]! @isAuthenticated
+  getAggregatedWorkflowResourceConsumption(
+    filters: GetAggregatedWorkflowResourceConsumptionFilters!
+  ): [AggregatedWorkflowResourceConsumption]! @isAuthenticated
+}
+
+type Mutation {
+  updateAccountDetails(
+    displayName: LabelText! @length(min: 1, max: 100)
+  ): UpdateAccountDetailsResponse!
+  updateOrganizationDetails(
+    displayName: LabelText! @length(min: 1, max: 100)
+  ): UpdateOrganizationDetailsResponse!
+  inviteOrganizationMembers(
+    members: [OrganizationAccountInviteParams!]! @length(min: 1, max: 10)
+  ): InviteOrganizationMembersResponse! @isRootAccount
+  removeOrganizationMembers(
+    memberIds: [MemberId!]! @length(min: 1, max: 10)
+  ): RemoveOrganizationMembersResponse! @isRootAccount
+  createApiKey(request: CreateApiKeyRequest!): CreateApiKeyResponse!
+    @isUngatedOrganization
+  updateApiKey(request: UpdateApiKeyRequest!): UpdateApiKeyResponse!
+    @isUngatedOrganization
+  revokeApiKey(
+    apiKeyId: CredentialText! @length(min: 1, max: 255)
+  ): RevokeApiKeyResponse!
+  rotateApiKey(request: RotateApiKeyRequest!): RotateApiKeyResponse!
+    @isUngatedOrganization
+  updateLinkedOwnerMetadata(
+    request: UpdateOwnerMetadataRequest!
+  ): UpdateOwnerMetadataResponse! @isUngatedOrganization
+  initiateLinking(request: InitiateLinkingRequest!): InitiateLinkingResponse!
+    @isUngatedOrganization
+  initiateUnlinking(
+    request: InitiateUnlinkingRequest!
+  ): InitiateUnlinkingResponse!
+  """
+  Generate a presigned POST URL for uploading artifacts
+  for a workflow.
+  """
+  generatePresignedPostUrlForArtifact(
+    artifact: GeneratePresignedPostUrlRequest!
+  ): GeneratePresignedPostUrlResponse! @isUngatedOrganization
+  """
+  Generate a presigned GET URL for downloading artifacts
+  for a workflow.
+  """
+  generatePresignedGetUrlForArtifact(
+    artifact: GeneratePresignedGetUrlRequest!
+  ): GeneratePresignedGetUrlResponse! @isUngatedOrganization
+  """
+  Generate an unsigned GET URL for referencing artifacts
+  for a workflow.
+  """
+  generateUnsignedGetUrlForArtifact(
+    artifact: GenerateUnsignedGetUrlRequest!
+  ): GenerateUnsignedGetUrlResponse! @isUngatedOrganization
+  reportUserEvent(event: UserEventInput!): ReportUserEventResponse!
+  requestDeploymentAccess(
+    input: RequestDeploymentAccessInput!
+  ): RequestDeploymentAccessResponse! @isAuthenticated
+  requestHelp(input: RequestHelpInput!): RequestHelpResponse! @isAuthenticated
+}
+
+input KeyValue {
+  key: String! @length(min: 1, max: 1000)
+  value: String! @length(min: 1, max: 1000)
+}
+
+enum MemberStatus {
+  INVITED
+  JOINED
+  REMOVED
+}
+
+enum MemberType {
+  ROOT
+  ADMIN
+}
+
+enum OrganizationRestrictionStatus {
+  GATED
+  FULL_ACCESS
+}
+
+enum EntityActiveStatus {
+  ACTIVE
+  DELETED
+}
+
+enum ApiKeyVerificationStatus {
+  VALID
+  INVALID
+  EXPIRED
+}
+
+enum OrganizationApiKeyScope {
+  USER_KEYS
+  ORG_KEYS
+}
+
+enum LinkStatusFilter {
+  LINKED_ONLY
+  UNLINKED_ONLY
+}
+
+enum Environment {
+  PRODUCTION_MAINNET
+  PRODUCTION_TESTNET
+}
+
+enum LinkRequestProcess {
+  EOA
+  MSIG
+}
+
+enum OwnershipVerificationStatus {
+  VERIFICATION_PENDING
+  VERIFICATION_SUCCESSFULL
+  VERIFICATION_EXPIRED
+  VERIFICATION_FAILED
+}
+
+enum ArtifactType {
+  BINARY
+  CONFIG
+}
+
+enum SortingOrder {
+  ASC
+  DESC
+}
+
+enum WorkflowDeploymentStatus {
+  PENDING
+  FAILED
+  ACTIVE
+  PAUSED
+  DELETED
+}
+
+enum WorkflowExecutionStatus {
+  UNKNOWN
+  UNSPECIFIED
+  TRIGGERED
+  IN_PROGRESS
+  SUCCESS
+  FAILURE
+}
+
+enum MeasurementUnit {
+  MEASUREMENT_UNIT_UNSPECIFIED
+  MEASUREMENT_UNIT_BYTES
+  MEASUREMENT_UNIT_MILLISECONDS
+  MEASUREMENT_UNIT_OPERATIONS
+  MEASUREMENT_UNIT_COST
+}
+
+enum ResourceConsumptionGroupDimension {
+  RESOURCE_CONSUMPTION_GROUP_DIMENSION_UNSPECIFIED
+  RESOURCE_CONSUMPTION_GROUP_DIMENSION_WORKFLOW_ID
+  RESOURCE_CONSUMPTION_GROUP_DIMENSION_NETWORK
+  RESOURCE_CONSUMPTION_GROUP_DIMENSION_DAY
+}
+
+enum SupportTicketRequestType {
+  cre_general_feedback
+  cre_feature_request
+  cre_bug_report
+  cre_support_request
+  cre_customer_deploy_access_request
+  cre_other
+}
+
+type OrganizationAccount {
+  memberId: MemberId!
+  userId: UserId
+  organizationId: OrganizationId!
+  emailAddress: Email!
+  displayName: LabelText!
+  memberType: MemberType
+  memberStatus: MemberStatus!
+  createdAt: Time!
+  updatedAt: Time!
+  invitedByUser: UserId
+  invitedAt: Time
+  joinedAt: Time
+  removedByUser: UserId
+  removedAt: Time
+}
+
+type UpdateAccountDetailsResponse {
+  success: Boolean!
+}
+
+type Organization {
+  organizationId: OrganizationId!
+  displayName: LabelText!
+  createdAt: Time!
+  updatedAt: Time!
+  restrictionStatus: OrganizationRestrictionStatus!
+  activeStatus: EntityActiveStatus!
+}
+
+type UpdateOrganizationDetailsResponse {
+  success: Boolean!
+}
+
+type InviteOrganizationMembersResponse {
+  success: Boolean!
+}
+
+type RemoveOrganizationMembersResponse {
+  success: Boolean!
+}
+
+type OrganizationApiKeyDetails {
+  apiKeyId: ID!
+  organizationId: OrganizationId!
+  userId: UserId
+  displayName: LabelText
+  createdAt: Time!
+  updatedAt: Time!
+  expiresAt: Time!
+  generatedAt: Time!
+  activeStatus: EntityActiveStatus!
+}
+
+type VerifyApiKeyResponse {
+  verificationStatus: ApiKeyVerificationStatus!
+  apiKeyDetails: OrganizationApiKeyDetails
+  metadata: JSONObject
+}
+
+type CreateApiKeyResponse {
+  apiKeyId: ID!
+  apiKeyToken: CredentialText!
+}
+
+type UpdateApiKeyResponse {
+  success: Boolean!
+}
+
+type RevokeApiKeyResponse {
+  success: Boolean!
+}
+
+type RotateApiKeyResponse {
+  apiKeyToken: CredentialText!
+}
+
+type WorkflowOwner {
+  workflowOwnerAddress: OnchainAddress!
+  workflowOwnerLabel: String
+  environment: Environment!
+  verificationStatus: OwnershipVerificationStatus!
+  verifiedAt: Time
+  chainSelector: ChainSelector!
+  contractAddress: OnchainAddress!
+  requestProcess: LinkRequestProcess
+}
+
+type ListWorkflowOwnersResponse {
+  linkedOwners: [WorkflowOwner]
+  unlinkedOwners: [WorkflowOwner]
+}
+
+type InitiateLinkingResponse {
+  ownershipProofHash: String!
+  workflowOwnerAddress: OnchainAddress!
+  validUntil: Time!
+  signature: String!
+  chainSelector: ChainSelector!
+  contractAddress: OnchainAddress!
+  transactionData: String!
+  functionSignature: String!
+  functionArgs: [String!]!
+}
+
+type InitiateUnlinkingResponse {
+  ownershipProofHash: String!
+  workflowOwnerAddress: OnchainAddress!
+  validUntil: Time!
+  signature: String!
+  chainSelector: ChainSelector!
+  contractAddress: OnchainAddress!
+  transactionData: String!
+  functionSignature: String!
+  functionArgs: [String!]!
+}
+
+type UpdateOwnerMetadataResponse {
+  success: Boolean!
+}
+
+type WorkflowActivityRow {
+  from: Time!
+  to: Time!
+  successCount: Int!
+  failureCount: Int!
+}
+
+input WorkflowActivityInput {
+  workflowUUID: String @length(min: 1, max: 255)
+  from: Time
+  to: Time
+}
+
+type WorkflowActivityOutput {
+  data: [WorkflowActivityRow!]
+}
+
+input WorkflowInput {
+  uuid: String! @length(min: 1, max: 255)
+  from: Time!
+}
+
+type WorkflowOutput {
+  data: Workflow!
+}
+
+type Workflow {
+  uuid: String!
+  ownerAddress: OnchainAddress!
+  name: String!
+  workflowId: WorkflowId!
+  status: WorkflowDeploymentStatus!
+  registeredAt: Time!
+  creditUsed: CreditAmount
+  executedAt: Time
+  executionCount: Int!
+  executionCountByStatus: WorkflowExecutionCountByStatus!
+  workflowSource: String!
+}
+
+type WorkflowExecutionCountByStatus {
+  success: Int!
+  failure: Int!
+}
+
+enum WorkflowOrderByField {
+  NAME
+  STATUS
+  EXECUTED_AT
+}
+
+input WorkflowOrderBy {
+  field: WorkflowOrderByField!
+  order: SortingOrder!
+}
+
+input WorkflowsInput {
+  workflowOwnerAddress: [OnchainAddress!] @length(min: 1, max: 100)
+  status: [WorkflowDeploymentStatus!] @length(min: 1, max: 10)
+  search: String @length(min: 1, max: 255)
+  orderBy: WorkflowOrderBy
+  page: Page
+}
+
+type WorkflowsOutput {
+  data: [Workflow!]!
+  count: Int!
+}
+
+type WorkflowDeployment {
+  uuid: String!
+  workflowID: String!
+  errorMessage: String
+  txHash: String
+  binaryURL: String
+  configURL: String
+  status: WorkflowDeploymentStatus!
+  deployedAt: Time!
+  executionCountByStatus: WorkflowExecutionCountByStatus
+  workflowSource: String!
+}
+
+enum WorkflowDeploymentOrderByField {
+  WORKFLOW_ID
+}
+
+input WorkflowDeploymentOrderBy {
+  field: WorkflowDeploymentOrderByField!
+  order: SortingOrder!
+}
+
+input WorkflowDeploymentsInput {
+  workflowUUID: String! @length(min: 1, max: 255)
+  status: [WorkflowDeploymentStatus!] @length(min: 1, max: 10)
+  from: Time
+  to: Time
+  search: String @length(min: 1, max: 255)
+  orderBy: WorkflowDeploymentOrderBy
+  page: Page
+}
+
+type WorkflowDeploymentsOutput {
+  data: [WorkflowDeployment!]!
+  count: Int!
+}
+
+input WorkflowDeploymentInput {
+  uuid: String! @length(min: 1, max: 255)
+}
+
+type WorkflowDeploymentOutput {
+  data: WorkflowDeployment!
+}
+
+type WorkflowExecution {
+  uuid: String!
+  workflowUUID: String!
+  id: String!
+  workflowName: String!
+  workflowId: WorkflowId!
+  status: WorkflowExecutionStatus!
+  startedAt: Time!
+  finishedAt: Time
+  creditUsed: CreditAmount
+}
+
+enum WorkflowExecutionOrderByField {
+  ID
+  STATUS
+  STARTED_AT
+  CREDIT_USED
+}
+
+input WorkflowExecutionOrderBy {
+  field: WorkflowExecutionOrderByField!
+  order: SortingOrder!
+}
+
+input WorkflowExecutionsInput {
+  workflowUuid: String @length(min: 1, max: 255)
+  status: [WorkflowExecutionStatus!] @length(min: 0, max: 10)
+  search: String @length(min: 1, max: 255)
+  from: Time
+  to: Time
+  orderBy: WorkflowExecutionOrderBy
+  page: Page
+}
+
+type WorkflowExecutionsOutput {
+  data: [WorkflowExecution!]!
+  count: Int!
+}
+
+input WorkflowExecutionInput {
+  uuid: String! @length(min: 1, max: 255)
+}
+
+type WorkflowExecutionOutput {
+  data: WorkflowExecution
+}
+
+type WorkflowExecutionLog {
+  nodeID: String!
+  message: String!
+  timestamp: Time!
+}
+
+input WorkflowExecutionLogsInput {
+  workflowExecutionUUID: String! @length(min: 1, max: 255)
+}
+
+type WorkflowExecutionLogsOutput {
+  data: [WorkflowExecutionLog!]
+}
+
+type CapabilityExecutionError {
+  error: String!
+  count: Int!
+}
+
+type WorkflowExecutionEvent {
+  capabilityID: String!
+  status: String!
+  startedAt: Time!
+  finishedAt: Time
+  errors: [CapabilityExecutionError]
+  method: String
+}
+
+input WorkflowExecutionEventsInput {
+  workflowExecutionUUID: String! @length(min: 1, max: 255)
+  capabilityID: String @length(min: 1, max: 255)
+  status: String @length(min: 1, max: 255)
+}
+
+type WorkflowExecutionEventsOutput {
+  data: [WorkflowExecutionEvent!]
+}
+
+input WorkflowOwnersFilters {
+  linkStatus: LinkStatusFilter!
+}
+
+input Page {
+  number: Int = 0 @size(min: 0)
+  size: Int = 10 @size(min: 1, max: 100)
+}
+
+input OrganizationMemberFilters {
+  memberStatus: [MemberStatus!] @length(min: 0, max: 10)
+  memberType: [MemberType!] @length(min: 0, max: 10)
+}
+
+input OrganizationAccountInviteParams {
+  emailAddress: Email!
+  displayName: LabelText @length(min: 1, max: 100)
+}
+
+input CreateApiKeyRequest {
+  expiryDate: Time!
+  displayName: LabelText @length(min: 1, max: 100)
+}
+
+input UpdateApiKeyRequest {
+  apiKeyId: CredentialText! @length(min: 1, max: 255)
+  expiryDate: Time
+  displayName: LabelText @length(min: 1, max: 100)
+}
+
+input RotateApiKeyRequest {
+  apiKeyId: CredentialText! @length(min: 1, max: 255)
+  expiryDate: Time
+}
+
+input OrganizationApiKeyFilters {
+  apiKeyScope: OrganizationApiKeyScope
+  includeExpired: Boolean
+  activeStatus: [EntityActiveStatus!] @length(min: 0, max: 10)
+}
+
+input UpdateOwnerMetadataRequest {
+  workflowOwnerAddress: OnchainAddress!
+  environment: Environment!
+  newWorkflowOwnerLabel: LabelText! @length(min: 1, max: 100)
+}
+
+input InitiateLinkingRequest {
+  workflowOwnerAddress: OnchainAddress!
+  workflowOwnerLabel: LabelText @length(min: 1, max: 100)
+  environment: Environment!
+  requestProcess: LinkRequestProcess
+}
+
+input InitiateUnlinkingRequest {
+  workflowOwnerAddress: OnchainAddress!
+  environment: Environment!
+}
+
+input GetWorkflowResourceConsumptionFilters {
+  workflowIds: [WorkflowId!] @length(min: 1, max: 10)
+  workflowOwners: [OnchainAddress!] @length(min: 1, max: 10)
+  workflowExecutionIds: [WorkflowId!] @length(min: 1, max: 10)
+  workflowRegistryChainSelectors: [ChainSelector!] @length(min: 1, max: 2)
+  resourceTypes: [ResourceTypeWithGas!] @length(min: 1, max: 10)
+  fromTimestamp: Time
+  toTimestamp: Time
+  splitGasResourcePerChain: Boolean!
+}
+
+type WorkflowResourceConsumption {
+  organizationId: OrganizationId!
+  workflowId: WorkflowId!
+  workflowOwner: OnchainAddress!
+  workflowExecutionId: WorkflowId!
+  workflowRegistryChainSelector: ChainSelector!
+  resourceType: ResourceTypeWithGas!
+  measurementUnit: MeasurementUnit!
+  spendValue: CreditAmount!
+  createdAt: Time!
+}
+
+input GetAggregatedWorkflowResourceConsumptionFilters {
+  dimension: ResourceConsumptionGroupDimension!
+  workflowUuids: [UUID!] @length(min: 0, max: 10)
+  workflowExecutionIds: [WorkflowId!] @length(min: 0, max: 10)
+  workflowRegistryChainSelectors: [ChainSelector!] @length(min: 0, max: 2)
+  resourceTypes: [ResourceTypeWithGas!] @length(min: 0, max: 10)
+  fromTimestamp: Time
+  toTimestamp: Time
+  splitGasResourcePerChain: Boolean!
+}
+
+type AggregatedSpendValue {
+  resourceType: ResourceTypeWithGas!
+  spendValue: CreditAmount!
+}
+
+type AggregatedWorkflowResourceConsumption {
+  dimensionValue: String!
+  aggregatedSpendValues: [AggregatedSpendValue!]!
+}
+
+type Header {
+  key: String!
+  value: String!
+}
+
+input GeneratePresignedPostUrlRequest {
+  workflowId: String! @length(min: 1, max: 255)
+  artifactType: ArtifactType!
+  contentHash: String! @length(min: 1, max: 1000)
+  workflowOwnerAddress: OnchainAddress!
+  workflowRegistryAddress: OnchainAddress
+    @deprecated(reason: "No longer used, omit this field.")
+  chainSelector: ChainSelector
+    @deprecated(reason: "No longer used, omit this field.")
+}
+
+input GeneratePresignedGetUrlRequest {
+  workflowId: String! @length(min: 1, max: 255)
+  artifactType: ArtifactType!
+  workflowRegistryAddress: OnchainAddress!
+  chainSelector: ChainSelector!
+}
+
+input GenerateUnsignedGetUrlRequest {
+  workflowId: String! @length(min: 1, max: 255)
+  artifactType: ArtifactType!
+  workflowRegistryAddress: OnchainAddress
+    @deprecated(reason: "No longer used, omit this field.")
+  chainSelector: ChainSelector
+    @deprecated(reason: "No longer used, omit this field.")
+}
+
+type GeneratePresignedPostUrlResponse {
+  presignedPostUrl: String!
+  presignedPostFields: [Header!]!
+}
+
+type GeneratePresignedGetUrlResponse {
+  presignedGetUrl: String!
+}
+
+type GenerateUnsignedGetUrlResponse {
+  unsignedGetUrl: String!
+}
+
+input UserEventInput {
+  cliVersion: String @length(min: 1, max: 100)
+  exitCode: Int
+  errorMessage: String @length(max: 1000)
+  actor: ActorInfoInput
+  workflow: WorkflowInfoInput
+  machine: MachineInfoInput
+  command: CommandInfoInput
+  attributes: [KeyValue!] @length(max: 50)
+}
+
+input ActorInfoInput {
+  userId: String @length(min: 1, max: 255)
+  organizationId: String @length(min: 1, max: 255)
+  machineId: String @length(min: 1, max: 255)
+}
+
+input WorkflowInfoInput {
+  ownerAddress: String @length(max: 255)
+  name: String @length(max: 255)
+  id: String @length(max: 255)
+  language: String @length(max: 50)
+}
+
+input MachineInfoInput {
+  osName: String @length(min: 1, max: 100)
+  osVersion: String @length(min: 1, max: 100)
+  architecture: String @length(min: 1, max: 50)
+}
+
+input CommandInfoInput {
+  action: String @length(min: 1, max: 100)
+  subcommand: String @length(max: 100)
+  args: [String!] @length(max: 20)
+  flags: [KeyValue!] @length(max: 50)
+}
+
+type ReportUserEventResponse {
+  success: Boolean!
+  message: String
+}
+
+input RequestDeploymentAccessInput {
+  description: String! @length(min: 1, max: 1000)
+  workflowUrl: String @length(min: 1, max: 1000)
+}
+
+type RequestDeploymentAccessResponse {
+  success: Boolean!
+  message: String
+}
+
+input RequestHelpInput {
+  issueType: SupportTicketRequestType!
+  description: String! @length(min: 1, max: 1000)
+}
+
+type RequestHelpResponse {
+  success: Boolean!
+  message: String
+}
