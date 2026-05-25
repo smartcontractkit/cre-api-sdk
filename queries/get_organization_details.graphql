@@ -1,10 +1,10 @@
 query GetOrganizationDetails {
-  getOrganization {
-    organizationId
-    displayName
-    createdAt
-    updatedAt
-    restrictionStatus
-    activeStatus
-  }
+	getOrganization {
+		organizationId
+		displayName
+		createdAt
+		updatedAt
+		restrictionStatus
+		activeStatus
+	}
 }
