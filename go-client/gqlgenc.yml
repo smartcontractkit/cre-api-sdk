@@ -1,0 +1,10 @@
+schema:
+  - ../schemas/cre-api.graphqls
+query:
+  - ../queries/*.graphql
+client:
+  package: client
+  filename: ./client/cre_client.go
+model:
+  package: client
+  filename: ./client/cre_client_models.go

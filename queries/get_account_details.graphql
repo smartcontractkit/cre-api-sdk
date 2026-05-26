@@ -1,0 +1,18 @@
+query GetAccountDetails {
+	getAccountDetails {
+		memberId
+		userId
+		organizationId
+		emailAddress
+		displayName
+		memberType
+		memberStatus
+		createdAt
+		updatedAt
+		invitedByUser
+		invitedAt
+		joinedAt
+		removedByUser
+		removedAt
+	}
+}
