@@ -10,6 +10,14 @@ import (
 	"time"
 )
 
+type ActivateOffchainWorkflowRequest struct {
+	WorkflowID string `json:"workflowId"`
+}
+
+type ActivateOffchainWorkflowResponse struct {
+	Workflow *OffchainWorkflow `json:"workflow"`
+}
+
 type ActorInfoInput struct {
 	UserID         *string `json:"userId,omitempty"`
 	OrganizationID *string `json:"organizationId,omitempty"`
@@ -24,6 +32,17 @@ type AggregatedSpendValue struct {
 type AggregatedWorkflowResourceConsumption struct {
 	DimensionValue        string                  `json:"dimensionValue"`
 	AggregatedSpendValues []*AggregatedSpendValue `json:"aggregatedSpendValues"`
+}
+
+type AuthCodeTokenExchangeRequest struct {
+	Code         string `json:"code"`
+	CodeVerifier string `json:"codeVerifier"`
+	RedirectURI  string `json:"redirectUri"`
+}
+
+type AuthCodeTokenExchangeResponse struct {
+	AccessToken string `json:"accessToken"`
+	ExpiresIn   int    `json:"expiresIn"`
 }
 
 type CapabilityExecutionError struct {
@@ -46,6 +65,24 @@ type CreateAPIKeyRequest struct {
 type CreateAPIKeyResponse struct {
 	APIKeyID    string `json:"apiKeyId"`
 	APIKeyToken string `json:"apiKeyToken"`
+}
+
+type DeleteOffchainWorkflowRequest struct {
+	WorkflowID string `json:"workflowId"`
+}
+
+type DeleteOffchainWorkflowResponse struct {
+	WorkflowID string `json:"workflowId"`
+}
+
+type ExecutionError struct {
+	Error string `json:"error"`
+	Count int    `json:"count"`
+}
+
+type Forwarder struct {
+	ChainSelector string `json:"chainSelector"`
+	Address       string `json:"address"`
 }
 
 type GeneratePresignedGetURLRequest struct {
@@ -93,6 +130,31 @@ type GetAggregatedWorkflowResourceConsumptionFilters struct {
 	FromTimestamp                  *time.Time                        `json:"fromTimestamp,omitempty"`
 	ToTimestamp                    *time.Time                        `json:"toTimestamp,omitempty"`
 	SplitGasResourcePerChain       bool                              `json:"splitGasResourcePerChain"`
+}
+
+type GetOffchainWorkflowByIDRequest struct {
+	WorkflowID string `json:"workflowId"`
+}
+
+type GetOffchainWorkflowByIDResponse struct {
+	Workflow *OffchainWorkflow `json:"workflow"`
+}
+
+type GetOffchainWorkflowByNameRequest struct {
+	WorkflowName string `json:"workflowName"`
+}
+
+type GetOffchainWorkflowByNameResponse struct {
+	Workflow *OffchainWorkflow `json:"workflow"`
+}
+
+type GetOffchainWorkflowByOwnerAndNameRequest struct {
+	Owner        string `json:"owner"`
+	WorkflowName string `json:"workflowName"`
+}
+
+type GetOffchainWorkflowByOwnerAndNameResponse struct {
+	Workflow *OffchainWorkflow `json:"workflow"`
 }
 
 type GetWorkflowResourceConsumptionFilters struct {
@@ -156,6 +218,16 @@ type KeyValue struct {
 	Value string `json:"value"`
 }
 
+type ListOffchainWorkflowsRequest struct {
+	Limit                 int        `json:"limit"`
+	LastWorkflowCreatedAt *time.Time `json:"lastWorkflowCreatedAt,omitempty"`
+	LastWorkflowID        *string    `json:"lastWorkflowId,omitempty"`
+}
+
+type ListOffchainWorkflowsResponse struct {
+	Workflows []*OffchainWorkflow `json:"workflows"`
+}
+
 type ListWorkflowOwnersResponse struct {
 	LinkedOwners   []*WorkflowOwner `json:"linkedOwners,omitempty"`
 	UnlinkedOwners []*WorkflowOwner `json:"unlinkedOwners,omitempty"`
@@ -170,6 +242,38 @@ type MachineInfoInput struct {
 type Mutation struct {
 }
 
+type OffchainWorkflow struct {
+	WorkflowID     string                 `json:"workflowId"`
+	Owner          string                 `json:"owner"`
+	CreatedAt      time.Time              `json:"createdAt"`
+	UpdatedAt      time.Time              `json:"updatedAt"`
+	Status         OffchainWorkflowStatus `json:"status"`
+	WorkflowName   string                 `json:"workflowName"`
+	BinaryURL      string                 `json:"binaryUrl"`
+	ConfigURL      string                 `json:"configUrl"`
+	Tag            string                 `json:"tag"`
+	Attributes     string                 `json:"attributes"`
+	DonFamily      string                 `json:"donFamily"`
+	OrganizationID string                 `json:"organizationId"`
+}
+
+type OffchainWorkflowInput struct {
+	WorkflowID   string                 `json:"workflowId"`
+	Status       OffchainWorkflowStatus `json:"status"`
+	WorkflowName string                 `json:"workflowName"`
+	BinaryURL    string                 `json:"binaryUrl"`
+	ConfigURL    *string                `json:"configUrl,omitempty"`
+	Tag          *string                `json:"tag,omitempty"`
+	Attributes   *string                `json:"attributes,omitempty"`
+	DonFamily    string                 `json:"donFamily"`
+}
+
+// On-chain contract reference (address + chain selector).
+type OnChainContract struct {
+	ChainSelector string `json:"chainSelector"`
+	Address       string `json:"address"`
+}
+
 type Organization struct {
 	OrganizationID    string                        `json:"organizationId"`
 	DisplayName       string                        `json:"displayName"`
@@ -177,6 +281,7 @@ type Organization struct {
 	UpdatedAt         time.Time                     `json:"updatedAt"`
 	RestrictionStatus OrganizationRestrictionStatus `json:"restrictionStatus"`
 	ActiveStatus      EntityActiveStatus            `json:"activeStatus"`
+	TenantID          int                           `json:"tenantId"`
 }
 
 type OrganizationAccount struct {
@@ -229,7 +334,24 @@ type Page struct {
 	Size   *int `json:"size,omitempty"`
 }
 
+type PauseOffchainWorkflowRequest struct {
+	WorkflowID string `json:"workflowId"`
+}
+
+type PauseOffchainWorkflowResponse struct {
+	Workflow *OffchainWorkflow `json:"workflow"`
+}
+
 type Query struct {
+}
+
+type Registry struct {
+	ID               string            `json:"id"`
+	Label            string            `json:"label"`
+	Type             RegistryType      `json:"type"`
+	ChainSelector    *string           `json:"chainSelector,omitempty"`
+	Address          *string           `json:"address,omitempty"`
+	SecretsAuthFlows []SecretsAuthFlow `json:"secretsAuthFlows"`
 }
 
 type RemoveOrganizationMembersResponse struct {
@@ -253,6 +375,7 @@ type RequestDeploymentAccessResponse struct {
 
 type RequestHelpInput struct {
 	IssueType   SupportTicketRequestType `json:"issueType"`
+	Product     SupportTicketProduct     `json:"product"`
 	Description string                   `json:"description"`
 }
 
@@ -272,6 +395,19 @@ type RotateAPIKeyRequest struct {
 
 type RotateAPIKeyResponse struct {
 	APIKeyToken string `json:"apiKeyToken"`
+}
+
+// Tenant configuration for CLI context.
+type TenantConfig struct {
+	TenantID string `json:"tenantId"`
+	// Default DON family for this tenant. Overridable by CLI.
+	DefaultDonFamily string `json:"defaultDonFamily"`
+	// Vault DON gateway URL for secrets management.
+	VaultGatewayURL string `json:"vaultGatewayUrl"`
+	// CapabilitiesRegistry contract for this tenant.
+	CapabilitiesRegistry *OnChainContract `json:"capabilitiesRegistry"`
+	Registries           []*Registry      `json:"registries"`
+	Forwarders           []*Forwarder     `json:"forwarders"`
 }
 
 type UpdateAccountDetailsResponse struct {
@@ -302,6 +438,14 @@ type UpdateOwnerMetadataResponse struct {
 	Success bool `json:"success"`
 }
 
+type UpsertOffchainWorkflowRequest struct {
+	Workflow *OffchainWorkflowInput `json:"workflow"`
+}
+
+type UpsertOffchainWorkflowResponse struct {
+	Workflow *OffchainWorkflow `json:"workflow"`
+}
+
 type UserEventInput struct {
 	CliVersion   *string            `json:"cliVersion,omitempty"`
 	ExitCode     *int               `json:"exitCode,omitempty"`
@@ -311,6 +455,18 @@ type UserEventInput struct {
 	Machine      *MachineInfoInput  `json:"machine,omitempty"`
 	Command      *CommandInfoInput  `json:"command,omitempty"`
 	Attributes   []*KeyValue        `json:"attributes,omitempty"`
+}
+
+type VaultAuthorizationURLRequest struct {
+	CodeChallenge        string          `json:"codeChallenge"`
+	RedirectURI          string          `json:"redirectUri"`
+	RequestDigest        string          `json:"requestDigest"`
+	WorkflowOwnerAddress *string         `json:"workflowOwnerAddress,omitempty"`
+	Permission           VaultPermission `json:"permission"`
+}
+
+type VaultAuthorizationURLResponse struct {
+	URL string `json:"url"`
 }
 
 type VerifyAPIKeyResponse struct {
@@ -331,6 +487,8 @@ type Workflow struct {
 	ExecutionCount         int                             `json:"executionCount"`
 	ExecutionCountByStatus *WorkflowExecutionCountByStatus `json:"executionCountByStatus"`
 	WorkflowSource         string                          `json:"workflowSource"`
+	HasTeeExecutions       bool                            `json:"hasTeeExecutions"`
+	HasNonTeeExecutions    bool                            `json:"hasNonTeeExecutions"`
 }
 
 type WorkflowActivityInput struct {
@@ -361,6 +519,8 @@ type WorkflowDeployment struct {
 	DeployedAt             time.Time                       `json:"deployedAt"`
 	ExecutionCountByStatus *WorkflowExecutionCountByStatus `json:"executionCountByStatus,omitempty"`
 	WorkflowSource         string                          `json:"workflowSource"`
+	HasTeeExecutions       bool                            `json:"hasTeeExecutions"`
+	HasNonTeeExecutions    bool                            `json:"hasNonTeeExecutions"`
 }
 
 type WorkflowDeploymentInput struct {
@@ -392,15 +552,18 @@ type WorkflowDeploymentsOutput struct {
 }
 
 type WorkflowExecution struct {
-	UUID         string                  `json:"uuid"`
-	WorkflowUUID string                  `json:"workflowUUID"`
-	ID           string                  `json:"id"`
-	WorkflowName string                  `json:"workflowName"`
-	WorkflowID   string                  `json:"workflowId"`
-	Status       WorkflowExecutionStatus `json:"status"`
-	StartedAt    time.Time               `json:"startedAt"`
-	FinishedAt   *time.Time              `json:"finishedAt,omitempty"`
-	CreditUsed   *string                 `json:"creditUsed,omitempty"`
+	UUID             string                             `json:"uuid"`
+	WorkflowUUID     string                             `json:"workflowUUID"`
+	ID               string                             `json:"id"`
+	WorkflowName     string                             `json:"workflowName"`
+	WorkflowID       string                             `json:"workflowId"`
+	Status           WorkflowExecutionStatus            `json:"status"`
+	StartedAt        time.Time                          `json:"startedAt"`
+	FinishedAt       *time.Time                         `json:"finishedAt,omitempty"`
+	CreditUsed       *string                            `json:"creditUsed,omitempty"`
+	Errors           []*ExecutionError                  `json:"errors,omitempty"`
+	ExecutedInTee    *bool                              `json:"executedInTee,omitempty"`
+	ClassifiedStatus *WorkflowExecutionClassifiedStatus `json:"classifiedStatus,omitempty"`
 }
 
 type WorkflowExecutionCountByStatus struct {
@@ -1035,6 +1198,63 @@ func (e MemberType) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type OffchainWorkflowStatus string
+
+const (
+	OffchainWorkflowStatusWorkflowStatusUnspecified OffchainWorkflowStatus = "WORKFLOW_STATUS_UNSPECIFIED"
+	OffchainWorkflowStatusWorkflowStatusActive      OffchainWorkflowStatus = "WORKFLOW_STATUS_ACTIVE"
+	OffchainWorkflowStatusWorkflowStatusPaused      OffchainWorkflowStatus = "WORKFLOW_STATUS_PAUSED"
+)
+
+var AllOffchainWorkflowStatus = []OffchainWorkflowStatus{
+	OffchainWorkflowStatusWorkflowStatusUnspecified,
+	OffchainWorkflowStatusWorkflowStatusActive,
+	OffchainWorkflowStatusWorkflowStatusPaused,
+}
+
+func (e OffchainWorkflowStatus) IsValid() bool {
+	switch e {
+	case OffchainWorkflowStatusWorkflowStatusUnspecified, OffchainWorkflowStatusWorkflowStatusActive, OffchainWorkflowStatusWorkflowStatusPaused:
+		return true
+	}
+	return false
+}
+
+func (e OffchainWorkflowStatus) String() string {
+	return string(e)
+}
+
+func (e *OffchainWorkflowStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = OffchainWorkflowStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid OffchainWorkflowStatus", str)
+	}
+	return nil
+}
+
+func (e OffchainWorkflowStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *OffchainWorkflowStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e OffchainWorkflowStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 type OrganizationAPIKeyScope string
 
 const (
@@ -1204,6 +1424,61 @@ func (e OwnershipVerificationStatus) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type RegistryType string
+
+const (
+	RegistryTypeOnChain  RegistryType = "ON_CHAIN"
+	RegistryTypeOffChain RegistryType = "OFF_CHAIN"
+)
+
+var AllRegistryType = []RegistryType{
+	RegistryTypeOnChain,
+	RegistryTypeOffChain,
+}
+
+func (e RegistryType) IsValid() bool {
+	switch e {
+	case RegistryTypeOnChain, RegistryTypeOffChain:
+		return true
+	}
+	return false
+}
+
+func (e RegistryType) String() string {
+	return string(e)
+}
+
+func (e *RegistryType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RegistryType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RegistryType", str)
+	}
+	return nil
+}
+
+func (e RegistryType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RegistryType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RegistryType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 type ResourceConsumptionGroupDimension string
 
 const (
@@ -1263,6 +1538,61 @@ func (e ResourceConsumptionGroupDimension) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type SecretsAuthFlow string
+
+const (
+	SecretsAuthFlowBrowser         SecretsAuthFlow = "BROWSER"
+	SecretsAuthFlowOwnerKeySigning SecretsAuthFlow = "OWNER_KEY_SIGNING"
+)
+
+var AllSecretsAuthFlow = []SecretsAuthFlow{
+	SecretsAuthFlowBrowser,
+	SecretsAuthFlowOwnerKeySigning,
+}
+
+func (e SecretsAuthFlow) IsValid() bool {
+	switch e {
+	case SecretsAuthFlowBrowser, SecretsAuthFlowOwnerKeySigning:
+		return true
+	}
+	return false
+}
+
+func (e SecretsAuthFlow) String() string {
+	return string(e)
+}
+
+func (e *SecretsAuthFlow) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SecretsAuthFlow(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SecretsAuthFlow", str)
+	}
+	return nil
+}
+
+func (e SecretsAuthFlow) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SecretsAuthFlow) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SecretsAuthFlow) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 type SortingOrder string
 
 const (
@@ -1313,6 +1643,65 @@ func (e *SortingOrder) UnmarshalJSON(b []byte) error {
 }
 
 func (e SortingOrder) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type SupportTicketProduct string
+
+const (
+	SupportTicketProductAce     SupportTicketProduct = "ACE"
+	SupportTicketProductCre     SupportTicketProduct = "CRE"
+	SupportTicketProductStreams SupportTicketProduct = "STREAMS"
+	SupportTicketProductCrec    SupportTicketProduct = "CREC"
+)
+
+var AllSupportTicketProduct = []SupportTicketProduct{
+	SupportTicketProductAce,
+	SupportTicketProductCre,
+	SupportTicketProductStreams,
+	SupportTicketProductCrec,
+}
+
+func (e SupportTicketProduct) IsValid() bool {
+	switch e {
+	case SupportTicketProductAce, SupportTicketProductCre, SupportTicketProductStreams, SupportTicketProductCrec:
+		return true
+	}
+	return false
+}
+
+func (e SupportTicketProduct) String() string {
+	return string(e)
+}
+
+func (e *SupportTicketProduct) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SupportTicketProduct(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SupportTicketProduct", str)
+	}
+	return nil
+}
+
+func (e SupportTicketProduct) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SupportTicketProduct) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SupportTicketProduct) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
@@ -1381,19 +1770,80 @@ func (e SupportTicketRequestType) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type VaultPermission string
+
+const (
+	VaultPermissionVaultPermissionCreateSecrets VaultPermission = "VAULT_PERMISSION_CREATE_SECRETS"
+	VaultPermissionVaultPermissionDeleteSecrets VaultPermission = "VAULT_PERMISSION_DELETE_SECRETS"
+	VaultPermissionVaultPermissionUpdateSecrets VaultPermission = "VAULT_PERMISSION_UPDATE_SECRETS"
+	VaultPermissionVaultPermissionListSecrets   VaultPermission = "VAULT_PERMISSION_LIST_SECRETS"
+)
+
+var AllVaultPermission = []VaultPermission{
+	VaultPermissionVaultPermissionCreateSecrets,
+	VaultPermissionVaultPermissionDeleteSecrets,
+	VaultPermissionVaultPermissionUpdateSecrets,
+	VaultPermissionVaultPermissionListSecrets,
+}
+
+func (e VaultPermission) IsValid() bool {
+	switch e {
+	case VaultPermissionVaultPermissionCreateSecrets, VaultPermissionVaultPermissionDeleteSecrets, VaultPermissionVaultPermissionUpdateSecrets, VaultPermissionVaultPermissionListSecrets:
+		return true
+	}
+	return false
+}
+
+func (e VaultPermission) String() string {
+	return string(e)
+}
+
+func (e *VaultPermission) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = VaultPermission(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid VaultPermission", str)
+	}
+	return nil
+}
+
+func (e VaultPermission) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *VaultPermission) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e VaultPermission) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 type WorkflowDeploymentOrderByField string
 
 const (
 	WorkflowDeploymentOrderByFieldWorkflowID WorkflowDeploymentOrderByField = "WORKFLOW_ID"
+	WorkflowDeploymentOrderByFieldDeployedAt WorkflowDeploymentOrderByField = "DEPLOYED_AT"
 )
 
 var AllWorkflowDeploymentOrderByField = []WorkflowDeploymentOrderByField{
 	WorkflowDeploymentOrderByFieldWorkflowID,
+	WorkflowDeploymentOrderByFieldDeployedAt,
 }
 
 func (e WorkflowDeploymentOrderByField) IsValid() bool {
 	switch e {
-	case WorkflowDeploymentOrderByFieldWorkflowID:
+	case WorkflowDeploymentOrderByFieldWorkflowID, WorkflowDeploymentOrderByFieldDeployedAt:
 		return true
 	}
 	return false
@@ -1490,6 +1940,65 @@ func (e *WorkflowDeploymentStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e WorkflowDeploymentStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type WorkflowExecutionClassifiedStatus string
+
+const (
+	WorkflowExecutionClassifiedStatusUnspecified WorkflowExecutionClassifiedStatus = "UNSPECIFIED"
+	WorkflowExecutionClassifiedStatusSuccess     WorkflowExecutionClassifiedStatus = "SUCCESS"
+	WorkflowExecutionClassifiedStatusUserError   WorkflowExecutionClassifiedStatus = "USER_ERROR"
+	WorkflowExecutionClassifiedStatusSystemError WorkflowExecutionClassifiedStatus = "SYSTEM_ERROR"
+)
+
+var AllWorkflowExecutionClassifiedStatus = []WorkflowExecutionClassifiedStatus{
+	WorkflowExecutionClassifiedStatusUnspecified,
+	WorkflowExecutionClassifiedStatusSuccess,
+	WorkflowExecutionClassifiedStatusUserError,
+	WorkflowExecutionClassifiedStatusSystemError,
+}
+
+func (e WorkflowExecutionClassifiedStatus) IsValid() bool {
+	switch e {
+	case WorkflowExecutionClassifiedStatusUnspecified, WorkflowExecutionClassifiedStatusSuccess, WorkflowExecutionClassifiedStatusUserError, WorkflowExecutionClassifiedStatusSystemError:
+		return true
+	}
+	return false
+}
+
+func (e WorkflowExecutionClassifiedStatus) String() string {
+	return string(e)
+}
+
+func (e *WorkflowExecutionClassifiedStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WorkflowExecutionClassifiedStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WorkflowExecutionClassifiedStatus", str)
+	}
+	return nil
+}
+
+func (e WorkflowExecutionClassifiedStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WorkflowExecutionClassifiedStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WorkflowExecutionClassifiedStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
