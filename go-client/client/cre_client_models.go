@@ -57,9 +57,31 @@ type CommandInfoInput struct {
 	Flags      []*KeyValue `json:"flags,omitempty"`
 }
 
+type CompleteOrganizationKeyLinkRequest struct {
+	KeyAddress    string  `json:"keyAddress"`
+	ChainSelector *string `json:"chainSelector,omitempty"`
+	Signature     string  `json:"signature"`
+}
+
+// Response from completing an organization key link.
+type CompleteOrganizationKeyLinkResponse struct {
+	Key *OrganizationKey `json:"key"`
+}
+
+type CompleteOrganizationKeyUnlinkRequest struct {
+	KeyAddress    string  `json:"keyAddress"`
+	ChainSelector *string `json:"chainSelector,omitempty"`
+	Signature     string  `json:"signature"`
+}
+
+// Response from completing an organization key unlink.
+type CompleteOrganizationKeyUnlinkResponse struct {
+	Key *OrganizationKey `json:"key"`
+}
+
 type CreateAPIKeyRequest struct {
-	ExpiryDate  time.Time `json:"expiryDate"`
-	DisplayName *string   `json:"displayName,omitempty"`
+	DisplayName *string  `json:"displayName,omitempty"`
+	Permissions []string `json:"permissions"`
 }
 
 type CreateAPIKeyResponse struct {
@@ -73,6 +95,14 @@ type DeleteOffchainWorkflowRequest struct {
 
 type DeleteOffchainWorkflowResponse struct {
 	WorkflowID string `json:"workflowId"`
+}
+
+type DeleteOrganizationLimitInput struct {
+	LimitKey string `json:"limitKey"`
+}
+
+type DeleteOrganizationLimitResponse struct {
+	Success bool `json:"success"`
 }
 
 type ExecutionError struct {
@@ -119,6 +149,12 @@ type GenerateUnsignedGetURLRequest struct {
 
 type GenerateUnsignedGetURLResponse struct {
 	UnsignedGetURL string `json:"unsignedGetUrl"`
+}
+
+// Response containing the active organization key and its ownership proof.
+type GetActiveKeyProofResponse struct {
+	Key   *OrganizationKey   `json:"key"`
+	Proof *KeyOwnershipProof `json:"proof"`
 }
 
 type GetAggregatedWorkflowResourceConsumptionFilters struct {
@@ -192,6 +228,33 @@ type InitiateLinkingResponse struct {
 	FunctionArgs         []string  `json:"functionArgs"`
 }
 
+type InitiateOrganizationKeyLinkRequest struct {
+	KeyAddress    string  `json:"keyAddress"`
+	ChainSelector *string `json:"chainSelector,omitempty"`
+	DisplayName   *string `json:"displayName,omitempty"`
+}
+
+// Response from initiating an organization key link.
+type InitiateOrganizationKeyLinkResponse struct {
+	ProofID       string    `json:"proofId"`
+	TypedDataJSON string    `json:"typedDataJson"`
+	Nonce         string    `json:"nonce"`
+	ExpiresAt     time.Time `json:"expiresAt"`
+}
+
+type InitiateOrganizationKeyUnlinkRequest struct {
+	KeyAddress    string  `json:"keyAddress"`
+	ChainSelector *string `json:"chainSelector,omitempty"`
+}
+
+// Response from initiating an organization key unlink.
+type InitiateOrganizationKeyUnlinkResponse struct {
+	ProofID       string    `json:"proofId"`
+	TypedDataJSON string    `json:"typedDataJson"`
+	Nonce         string    `json:"nonce"`
+	ExpiresAt     time.Time `json:"expiresAt"`
+}
+
 type InitiateUnlinkingRequest struct {
 	WorkflowOwnerAddress string      `json:"workflowOwnerAddress"`
 	Environment          Environment `json:"environment"`
@@ -213,6 +276,18 @@ type InviteOrganizationMembersResponse struct {
 	Success bool `json:"success"`
 }
 
+// Proof of key ownership for an organization key.
+type KeyOwnershipProof struct {
+	ProofID            string       `json:"proofId"`
+	ProofHash          *string      `json:"proofHash,omitempty"`
+	ChallengeNonce     string       `json:"challengeNonce"`
+	ChallengeExpiresAt *time.Time   `json:"challengeExpiresAt,omitempty"`
+	ProofType          string       `json:"proofType"`
+	ProofStatus        ProofStatus  `json:"proofStatus"`
+	ProofPurpose       ProofPurpose `json:"proofPurpose"`
+	VerifiedAt         *time.Time   `json:"verifiedAt,omitempty"`
+}
+
 type KeyValue struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -226,6 +301,12 @@ type ListOffchainWorkflowsRequest struct {
 
 type ListOffchainWorkflowsResponse struct {
 	Workflows []*OffchainWorkflow `json:"workflows"`
+}
+
+// Paginated response of organization keys.
+type ListOrganizationKeysResponse struct {
+	Keys       []*OrganizationKey `json:"keys"`
+	NextCursor *string            `json:"nextCursor,omitempty"`
 }
 
 type ListWorkflowOwnersResponse struct {
@@ -299,11 +380,13 @@ type OrganizationAccount struct {
 	JoinedAt       *time.Time   `json:"joinedAt,omitempty"`
 	RemovedByUser  *string      `json:"removedByUser,omitempty"`
 	RemovedAt      *time.Time   `json:"removedAt,omitempty"`
+	MemberRoleIds  []string     `json:"memberRoleIds"`
 }
 
 type OrganizationAccountInviteParams struct {
-	EmailAddress string  `json:"emailAddress"`
-	DisplayName  *string `json:"displayName,omitempty"`
+	EmailAddress string   `json:"emailAddress"`
+	DisplayName  *string  `json:"displayName,omitempty"`
+	Roles        []string `json:"roles,omitempty"`
 }
 
 type OrganizationAPIKeyDetails struct {
@@ -316,6 +399,8 @@ type OrganizationAPIKeyDetails struct {
 	ExpiresAt      time.Time          `json:"expiresAt"`
 	GeneratedAt    time.Time          `json:"generatedAt"`
 	ActiveStatus   EntityActiveStatus `json:"activeStatus"`
+	Permissions    []string           `json:"permissions"`
+	CreatedByUser  string             `json:"createdByUser"`
 }
 
 type OrganizationAPIKeyFilters struct {
@@ -324,14 +409,44 @@ type OrganizationAPIKeyFilters struct {
 	ActiveStatus   []EntityActiveStatus     `json:"activeStatus,omitempty"`
 }
 
+// A key linked to an organization via the Address Registry.
+type OrganizationKey struct {
+	OrganizationID string        `json:"organizationId"`
+	KeyAddress     string        `json:"keyAddress"`
+	ChainSelector  *string       `json:"chainSelector,omitempty"`
+	Status         KeyLinkStatus `json:"status"`
+	DisplayName    string        `json:"displayName"`
+	CreatedBy      string        `json:"createdBy"`
+	VerifiedAt     time.Time     `json:"verifiedAt"`
+	RevokedAt      *time.Time    `json:"revokedAt,omitempty"`
+	CreatedAt      time.Time     `json:"createdAt"`
+}
+
+type OrganizationLimit struct {
+	OrganizationID string    `json:"organizationId"`
+	LimitKey       string    `json:"limitKey"`
+	LimitValue     string    `json:"limitValue"`
+	Version        int       `json:"version"`
+	ChangedBy      string    `json:"changedBy"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	IsActive       bool      `json:"isActive"`
+}
+
+type OrganizationLimitFilters struct {
+	LimitKeys []string `json:"limitKeys,omitempty"`
+}
+
 type OrganizationMemberFilters struct {
-	MemberStatus []MemberStatus `json:"memberStatus,omitempty"`
-	MemberType   []MemberType   `json:"memberType,omitempty"`
+	MemberStatus  []MemberStatus `json:"memberStatus,omitempty"`
+	MemberType    []MemberType   `json:"memberType,omitempty"`
+	MemberRoleIds []string       `json:"memberRoleIds,omitempty"`
 }
 
 type Page struct {
-	Number *int `json:"number,omitempty"`
-	Size   *int `json:"size,omitempty"`
+	Number *int    `json:"number,omitempty"`
+	Size   *int    `json:"size,omitempty"`
+	Cursor *string `json:"cursor,omitempty"`
 }
 
 type PauseOffchainWorkflowRequest struct {
@@ -340,6 +455,23 @@ type PauseOffchainWorkflowRequest struct {
 
 type PauseOffchainWorkflowResponse struct {
 	Workflow *OffchainWorkflow `json:"workflow"`
+}
+
+// RBAC definition to indicate supported roles & permissions
+type PermissionDefinition struct {
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	EnableInAPIKey bool   `json:"enableInApiKey"`
+	Group          string `json:"group"`
+}
+
+type ProductRBACDefinition struct {
+	DisplayName      string                        `json:"displayName"`
+	ProductID        string                        `json:"productId"`
+	Permissions      []*PermissionDefinition       `json:"permissions"`
+	Roles            []*RoleDefinition             `json:"roles"`
+	RequiredMetadata []*RequiredMetadataDefinition `json:"requiredMetadata,omitempty"`
+	SuggestedRoleID  *string                       `json:"suggestedRoleId,omitempty"`
 }
 
 type Query struct {
@@ -384,13 +516,24 @@ type RequestHelpResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+type RequiredMetadataDefinition struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
+}
+
 type RevokeAPIKeyResponse struct {
 	Success bool `json:"success"`
 }
 
+type RoleDefinition struct {
+	RoleID      string   `json:"roleId"`
+	DisplayName string   `json:"displayName"`
+	Description string   `json:"description"`
+	Permissions []string `json:"permissions"`
+}
+
 type RotateAPIKeyRequest struct {
-	APIKeyID   string     `json:"apiKeyId"`
-	ExpiryDate *time.Time `json:"expiryDate,omitempty"`
+	APIKeyID string `json:"apiKeyId"`
 }
 
 type RotateAPIKeyResponse struct {
@@ -415,12 +558,22 @@ type UpdateAccountDetailsResponse struct {
 }
 
 type UpdateAPIKeyRequest struct {
-	APIKeyID    string     `json:"apiKeyId"`
-	ExpiryDate  *time.Time `json:"expiryDate,omitempty"`
-	DisplayName *string    `json:"displayName,omitempty"`
+	APIKeyID    string   `json:"apiKeyId"`
+	DisplayName *string  `json:"displayName,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 
 type UpdateAPIKeyResponse struct {
+	Success bool `json:"success"`
+}
+
+type UpdateMemberRolesRequest struct {
+	MemberID     string   `json:"memberId"`
+	AddedRoles   []string `json:"addedRoles,omitempty"`
+	RemovedRoles []string `json:"removedRoles,omitempty"`
+}
+
+type UpdateMemberRolesResponse struct {
 	Success bool `json:"success"`
 }
 
@@ -446,6 +599,16 @@ type UpsertOffchainWorkflowResponse struct {
 	Workflow *OffchainWorkflow `json:"workflow"`
 }
 
+type UpsertOrganizationLimitInput struct {
+	LimitKey   string `json:"limitKey"`
+	LimitValue string `json:"limitValue"`
+}
+
+type UpsertOrganizationLimitResponse struct {
+	Success bool `json:"success"`
+	Version int  `json:"version"`
+}
+
 type UserEventInput struct {
 	CliVersion   *string            `json:"cliVersion,omitempty"`
 	ExitCode     *int               `json:"exitCode,omitempty"`
@@ -463,6 +626,7 @@ type VaultAuthorizationURLRequest struct {
 	RequestDigest        string          `json:"requestDigest"`
 	WorkflowOwnerAddress *string         `json:"workflowOwnerAddress,omitempty"`
 	Permission           VaultPermission `json:"permission"`
+	State                *string         `json:"state,omitempty"`
 }
 
 type VaultAuthorizationURLResponse struct {
@@ -492,9 +656,11 @@ type Workflow struct {
 }
 
 type WorkflowActivityInput struct {
-	WorkflowUUID *string    `json:"workflowUUID,omitempty"`
-	From         *time.Time `json:"from,omitempty"`
-	To           *time.Time `json:"to,omitempty"`
+	WorkflowUUID *string `json:"workflowUUID,omitempty"`
+	// Start of the activity range. Required.
+	From time.Time `json:"from"`
+	// End of the activity range. Must be after `from`. Required.
+	To time.Time `json:"to"`
 }
 
 type WorkflowActivityOutput struct {
@@ -506,6 +672,14 @@ type WorkflowActivityRow struct {
 	To           time.Time `json:"to"`
 	SuccessCount int       `json:"successCount"`
 	FailureCount int       `json:"failureCount"`
+}
+
+type WorkflowByDeploymentIDInput struct {
+	WorkflowID string `json:"workflowId"`
+}
+
+type WorkflowByDeploymentIDOutput struct {
+	Data *WorkflowRef `json:"data"`
 }
 
 type WorkflowDeployment struct {
@@ -523,6 +697,14 @@ type WorkflowDeployment struct {
 	HasNonTeeExecutions    bool                            `json:"hasNonTeeExecutions"`
 }
 
+type WorkflowDeploymentByIDInput struct {
+	WorkflowID string `json:"workflowId"`
+}
+
+type WorkflowDeploymentByIDOutput struct {
+	Data *WorkflowDeploymentRef `json:"data"`
+}
+
 type WorkflowDeploymentInput struct {
 	UUID string `json:"uuid"`
 }
@@ -534,6 +716,14 @@ type WorkflowDeploymentOrderBy struct {
 
 type WorkflowDeploymentOutput struct {
 	Data *WorkflowDeployment `json:"data"`
+}
+
+type WorkflowDeploymentRef struct {
+	UUID         string                   `json:"uuid"`
+	WorkflowUUID string                   `json:"workflowUUID"`
+	WorkflowID   string                   `json:"workflowId"`
+	Status       WorkflowDeploymentStatus `json:"status"`
+	DeployedAt   time.Time                `json:"deployedAt"`
 }
 
 type WorkflowDeploymentsInput struct {
@@ -564,6 +754,23 @@ type WorkflowExecution struct {
 	Errors           []*ExecutionError                  `json:"errors,omitempty"`
 	ExecutedInTee    *bool                              `json:"executedInTee,omitempty"`
 	ClassifiedStatus *WorkflowExecutionClassifiedStatus `json:"classifiedStatus,omitempty"`
+	DetailedStatus   *WorkflowExecutionDetailedStatus   `json:"detailedStatus,omitempty"`
+	// Returned when querying a single execution; null on list results.
+	CapabilityCounts *WorkflowExecutionCapabilityCounts `json:"capabilityCounts,omitempty"`
+}
+
+type WorkflowExecutionByIDInput struct {
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+}
+
+type WorkflowExecutionByIDOutput struct {
+	Data *WorkflowExecutionRef `json:"data"`
+}
+
+type WorkflowExecutionCapabilityCounts struct {
+	Total     int `json:"total"`
+	Completed int `json:"completed"`
+	Failed    int `json:"failed"`
 }
 
 type WorkflowExecutionCountByStatus struct {
@@ -617,14 +824,25 @@ type WorkflowExecutionOutput struct {
 	Data *WorkflowExecution `json:"data,omitempty"`
 }
 
+type WorkflowExecutionRef struct {
+	UUID         string                  `json:"uuid"`
+	WorkflowUUID string                  `json:"workflowUUID"`
+	ID           string                  `json:"id"`
+	WorkflowID   string                  `json:"workflowId"`
+	Status       WorkflowExecutionStatus `json:"status"`
+	StartedAt    time.Time               `json:"startedAt"`
+	FinishedAt   *time.Time              `json:"finishedAt,omitempty"`
+}
+
 type WorkflowExecutionsInput struct {
-	WorkflowUUID *string                   `json:"workflowUuid,omitempty"`
-	Status       []WorkflowExecutionStatus `json:"status,omitempty"`
-	Search       *string                   `json:"search,omitempty"`
-	From         *time.Time                `json:"from,omitempty"`
-	To           *time.Time                `json:"to,omitempty"`
-	OrderBy      *WorkflowExecutionOrderBy `json:"orderBy,omitempty"`
-	Page         *Page                     `json:"page,omitempty"`
+	WorkflowUUID         *string                   `json:"workflowUuid,omitempty"`
+	WorkflowExecutionIds []string                  `json:"workflowExecutionIds,omitempty"`
+	Status               []WorkflowExecutionStatus `json:"status,omitempty"`
+	Search               *string                   `json:"search,omitempty"`
+	From                 *time.Time                `json:"from,omitempty"`
+	To                   *time.Time                `json:"to,omitempty"`
+	OrderBy              *WorkflowExecutionOrderBy `json:"orderBy,omitempty"`
+	Page                 *Page                     `json:"page,omitempty"`
 }
 
 type WorkflowExecutionsOutput struct {
@@ -666,6 +884,15 @@ type WorkflowOwner struct {
 
 type WorkflowOwnersFilters struct {
 	LinkStatus LinkStatusFilter `json:"linkStatus"`
+}
+
+type WorkflowRef struct {
+	UUID         string                   `json:"uuid"`
+	WorkflowID   string                   `json:"workflowId"`
+	Name         string                   `json:"name"`
+	OwnerAddress string                   `json:"ownerAddress"`
+	Status       WorkflowDeploymentStatus `json:"status"`
+	RegisteredAt time.Time                `json:"registeredAt"`
 }
 
 type WorkflowResourceConsumption struct {
@@ -915,6 +1142,65 @@ func (e Environment) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type KeyLinkStatus string
+
+const (
+	KeyLinkStatusKeyLinkStatusUnspecified KeyLinkStatus = "KEY_LINK_STATUS_UNSPECIFIED"
+	KeyLinkStatusKeyLinkStatusPending     KeyLinkStatus = "KEY_LINK_STATUS_PENDING"
+	KeyLinkStatusKeyLinkStatusVerified    KeyLinkStatus = "KEY_LINK_STATUS_VERIFIED"
+	KeyLinkStatusKeyLinkStatusRevoked     KeyLinkStatus = "KEY_LINK_STATUS_REVOKED"
+)
+
+var AllKeyLinkStatus = []KeyLinkStatus{
+	KeyLinkStatusKeyLinkStatusUnspecified,
+	KeyLinkStatusKeyLinkStatusPending,
+	KeyLinkStatusKeyLinkStatusVerified,
+	KeyLinkStatusKeyLinkStatusRevoked,
+}
+
+func (e KeyLinkStatus) IsValid() bool {
+	switch e {
+	case KeyLinkStatusKeyLinkStatusUnspecified, KeyLinkStatusKeyLinkStatusPending, KeyLinkStatusKeyLinkStatusVerified, KeyLinkStatusKeyLinkStatusRevoked:
+		return true
+	}
+	return false
+}
+
+func (e KeyLinkStatus) String() string {
+	return string(e)
+}
+
+func (e *KeyLinkStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = KeyLinkStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid KeyLinkStatus", str)
+	}
+	return nil
+}
+
+func (e KeyLinkStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *KeyLinkStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e KeyLinkStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 type LinkRequestProcess string
 
 const (
@@ -1089,20 +1375,22 @@ func (e MeasurementUnit) MarshalJSON() ([]byte, error) {
 type MemberStatus string
 
 const (
-	MemberStatusInvited MemberStatus = "INVITED"
-	MemberStatusJoined  MemberStatus = "JOINED"
-	MemberStatusRemoved MemberStatus = "REMOVED"
+	MemberStatusInvited       MemberStatus = "INVITED"
+	MemberStatusJoined        MemberStatus = "JOINED"
+	MemberStatusRemoved       MemberStatus = "REMOVED"
+	MemberStatusInviteExpired MemberStatus = "INVITE_EXPIRED"
 )
 
 var AllMemberStatus = []MemberStatus{
 	MemberStatusInvited,
 	MemberStatusJoined,
 	MemberStatusRemoved,
+	MemberStatusInviteExpired,
 }
 
 func (e MemberStatus) IsValid() bool {
 	switch e {
-	case MemberStatusInvited, MemberStatusJoined, MemberStatusRemoved:
+	case MemberStatusInvited, MemberStatusJoined, MemberStatusRemoved, MemberStatusInviteExpired:
 		return true
 	}
 	return false
@@ -1419,6 +1707,124 @@ func (e *OwnershipVerificationStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e OwnershipVerificationStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ProofPurpose string
+
+const (
+	ProofPurposeProofPurposeUnspecified ProofPurpose = "PROOF_PURPOSE_UNSPECIFIED"
+	ProofPurposeProofPurposeLink        ProofPurpose = "PROOF_PURPOSE_LINK"
+	ProofPurposeProofPurposeUnlink      ProofPurpose = "PROOF_PURPOSE_UNLINK"
+)
+
+var AllProofPurpose = []ProofPurpose{
+	ProofPurposeProofPurposeUnspecified,
+	ProofPurposeProofPurposeLink,
+	ProofPurposeProofPurposeUnlink,
+}
+
+func (e ProofPurpose) IsValid() bool {
+	switch e {
+	case ProofPurposeProofPurposeUnspecified, ProofPurposeProofPurposeLink, ProofPurposeProofPurposeUnlink:
+		return true
+	}
+	return false
+}
+
+func (e ProofPurpose) String() string {
+	return string(e)
+}
+
+func (e *ProofPurpose) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ProofPurpose(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ProofPurpose", str)
+	}
+	return nil
+}
+
+func (e ProofPurpose) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ProofPurpose) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ProofPurpose) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ProofStatus string
+
+const (
+	ProofStatusProofStatusUnspecified ProofStatus = "PROOF_STATUS_UNSPECIFIED"
+	ProofStatusProofStatusPending     ProofStatus = "PROOF_STATUS_PENDING"
+	ProofStatusProofStatusSuccessful  ProofStatus = "PROOF_STATUS_SUCCESSFUL"
+	ProofStatusProofStatusExpired     ProofStatus = "PROOF_STATUS_EXPIRED"
+	ProofStatusProofStatusCancelled   ProofStatus = "PROOF_STATUS_CANCELLED"
+)
+
+var AllProofStatus = []ProofStatus{
+	ProofStatusProofStatusUnspecified,
+	ProofStatusProofStatusPending,
+	ProofStatusProofStatusSuccessful,
+	ProofStatusProofStatusExpired,
+	ProofStatusProofStatusCancelled,
+}
+
+func (e ProofStatus) IsValid() bool {
+	switch e {
+	case ProofStatusProofStatusUnspecified, ProofStatusProofStatusPending, ProofStatusProofStatusSuccessful, ProofStatusProofStatusExpired, ProofStatusProofStatusCancelled:
+		return true
+	}
+	return false
+}
+
+func (e ProofStatus) String() string {
+	return string(e)
+}
+
+func (e *ProofStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ProofStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ProofStatus", str)
+	}
+	return nil
+}
+
+func (e ProofStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ProofStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ProofStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
@@ -1999,6 +2405,72 @@ func (e *WorkflowExecutionClassifiedStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e WorkflowExecutionClassifiedStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// Refines WorkflowExecutionStatus with whether the execution carried any error detail, so a clean
+// success can be told apart from one that errored, and a failure that explains itself from one that
+// does not.
+//
+// Can be null, fall back to status in that case rather than rendering it as a distinct state.
+type WorkflowExecutionDetailedStatus string
+
+const (
+	WorkflowExecutionDetailedStatusUnspecified         WorkflowExecutionDetailedStatus = "UNSPECIFIED"
+	WorkflowExecutionDetailedStatusCompleted           WorkflowExecutionDetailedStatus = "COMPLETED"
+	WorkflowExecutionDetailedStatusCompletedWithErrors WorkflowExecutionDetailedStatus = "COMPLETED_WITH_ERRORS"
+	WorkflowExecutionDetailedStatusFailed              WorkflowExecutionDetailedStatus = "FAILED"
+	WorkflowExecutionDetailedStatusFailedNoDetail      WorkflowExecutionDetailedStatus = "FAILED_NO_DETAIL"
+)
+
+var AllWorkflowExecutionDetailedStatus = []WorkflowExecutionDetailedStatus{
+	WorkflowExecutionDetailedStatusUnspecified,
+	WorkflowExecutionDetailedStatusCompleted,
+	WorkflowExecutionDetailedStatusCompletedWithErrors,
+	WorkflowExecutionDetailedStatusFailed,
+	WorkflowExecutionDetailedStatusFailedNoDetail,
+}
+
+func (e WorkflowExecutionDetailedStatus) IsValid() bool {
+	switch e {
+	case WorkflowExecutionDetailedStatusUnspecified, WorkflowExecutionDetailedStatusCompleted, WorkflowExecutionDetailedStatusCompletedWithErrors, WorkflowExecutionDetailedStatusFailed, WorkflowExecutionDetailedStatusFailedNoDetail:
+		return true
+	}
+	return false
+}
+
+func (e WorkflowExecutionDetailedStatus) String() string {
+	return string(e)
+}
+
+func (e *WorkflowExecutionDetailedStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WorkflowExecutionDetailedStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WorkflowExecutionDetailedStatus", str)
+	}
+	return nil
+}
+
+func (e WorkflowExecutionDetailedStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WorkflowExecutionDetailedStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WorkflowExecutionDetailedStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

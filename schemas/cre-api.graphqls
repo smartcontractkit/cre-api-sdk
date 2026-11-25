@@ -21,15 +21,21 @@ scalar UserId
 
 scalar MemberId
 
+scalar RoleId
+
 scalar OrganizationId
 
 scalar TenantId
 
 scalar WorkflowId
 
+scalar Cursor
+
 scalar CreditAmount
 
 scalar JSONObject
+
+scalar JSON
 
 scalar ResourceTypeWithGas
 
@@ -49,21 +55,8 @@ Directive to restrict an endpoint to be accessible only with the specific permis
 """
 directive @hasAnyPermission(
   permissions: [String!]!
+  allowScoped: Boolean
 ) repeatable on FIELD_DEFINITION
-
-"""
-Directive to restrict an endpoint to be accessible only by the specific roles.
-
-"role1" OR "role2" can be achieved by a single directive, by specifying multiple values.
-"role1" AND "role2" can be achieved by defining multiple instances of this directive.
-
-Note that this automatically excludes API keys from being able to call endpoints - since roles only apply to user context.
-Typically, @hasAnyPermission should be used instead.
-
-TODO: this can be deprecated to limit complexity. After RBAC is fully implemented - @hasAnyPermission can be used instead
-for all endpoints, which will enable usage for both API keys and roles.
-"""
-directive @hasAnyRole(roleIds: [String!]!) repeatable on FIELD_DEFINITION
 
 """
 Directive to verify that the caller's organization is not gated.
@@ -79,12 +72,49 @@ Should be used for calls that need to be gated by claims.
 """
 directive @hasClaim(claimName: String!, values: [String!]) on FIELD_DEFINITION
 
+"""
+Validates the length of a string, or the number of entries in a list/map.
+
+- On a `String`, it constrains the number of characters (Unicode code points).
+- On a list/map, it constrains the number of elements.
+
+This directive measures the value it is applied to. To constrain the length of
+the elements *inside* a list, use `@nestedLength`. The two are complementary
+and can be combined to bound both the collection size and the element size:
+
+    [String] @length(min: 1, max: 10) @nestedLength(max: 100)
+"""
 directive @length(
   min: Int
   max: Int
 ) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
 
+"""
+Validates the numeric value of an `Int` against the provided bounds. This is a
+range check on the value itself, not a length check.
+
+Use `@length` for strings and collections, and `@nestedLength` for the elements
+contained in a collection.
+"""
 directive @size(
+  min: Int
+  max: Int
+) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
+
+"""
+Recursively validates the length of every string contained in a list.
+
+Unlike `@length`, which measures the collection itself, `@nestedLength`
+descends into (possibly nested) lists and applies the length bounds to each
+leaf string, counted in characters (Unicode code points). Only lists of strings
+(or string-backed scalars and enums) are supported. For example:
+
+    [String] @length(min: 1, max: 10) @nestedLength(max: 100)
+
+requires the list to contain between 1 and 10 elements and every string to be
+at most 100 characters long.
+"""
+directive @nestedLength(
   min: Int
   max: Int
 ) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
@@ -98,9 +128,11 @@ type Query {
   Organization details
   """
   getOrganization: Organization
+    @hasAnyPermission(permissions: ["platform:organization:read"])
   listOrganizationMembers(
     memberFilters: OrganizationMemberFilters
   ): [OrganizationAccount!]!
+    @hasAnyPermission(permissions: ["platform:member:read"])
   """
   API keys
   """
@@ -110,30 +142,80 @@ type Query {
   listApiKeys(
     apiKeyFilters: OrganizationApiKeyFilters!
   ): [OrganizationApiKeyDetails!]!
+    @hasAnyPermission(permissions: ["platform:api_key:read"])
+  """
+  RBAC definitions
+  """
+  getRBACDefinition: [ProductRBACDefinition!]! @isAuthenticated
+  """
+  Organization limits
+  """
+  listActiveOrganizationLimits(
+    limitFilters: OrganizationLimitFilters
+  ): [OrganizationLimit!]!
+    @hasAnyPermission(permissions: ["platform:limits:read"], allowScoped: true)
   """
   Workflow owners
   """
   listWorkflowOwners(
     filters: WorkflowOwnersFilters
   ): ListWorkflowOwnersResponse!
+    @hasAnyPermission(permissions: ["platform:owner_address:read"])
   """
   Workflows
   """
   workflowActivity(input: WorkflowActivityInput!): WorkflowActivityOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   workflow(input: WorkflowInput!): WorkflowOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   workflows(input: WorkflowsInput!): WorkflowsOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   workflowDeployments(
     input: WorkflowDeploymentsInput!
   ): WorkflowDeploymentsOutput!
-  workflowDeployment(input: WorkflowDeploymentInput!): WorkflowDeploymentOutput!
-  workflowExecutions(input: WorkflowExecutionsInput!): WorkflowExecutionsOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
+  workflowDeployment(
+    input: WorkflowDeploymentInput!
+  ): WorkflowDeploymentOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
+  workflowExecutions(
+    input: WorkflowExecutionsInput!
+  ): WorkflowExecutionsOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   workflowExecution(input: WorkflowExecutionInput!): WorkflowExecutionOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   workflowExecutionLogs(
     input: WorkflowExecutionLogsInput!
   ): WorkflowExecutionLogsOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   workflowExecutionEvents(
     input: WorkflowExecutionEventsInput!
   ): WorkflowExecutionEventsOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
+  """
+  Looks up the parent workflow of a deployment by the deployment's hex workflow ID.
+  Returns basic workflow data only, without stats or enrichment.
+  """
+  workflowByDeploymentId(
+    input: WorkflowByDeploymentIdInput!
+  ): WorkflowByDeploymentIdOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
+  """
+  Looks up a workflow deployment by its hex workflow ID.
+  Returns basic deployment data only, without stats or enrichment.
+  """
+  workflowDeploymentById(
+    input: WorkflowDeploymentByIdInput!
+  ): WorkflowDeploymentByIdOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
+  """
+  Looks up a workflow execution by its hex execution ID.
+  Returns basic execution data only, without stats or enrichment.
+  """
+  workflowExecutionById(
+    input: WorkflowExecutionByIdInput!
+  ): WorkflowExecutionByIdOutput!
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   """
   Tenant configuration for the authenticated user.
   Returns available registries and deployment context.
@@ -145,22 +227,47 @@ type Query {
   getWorkflowResourceConsumption(
     filters: GetWorkflowResourceConsumptionFilters!
     page: Page!
-  ): [WorkflowResourceConsumption]! @isAuthenticated
+  ): [WorkflowResourceConsumption]!
+    @isAuthenticated
+    @hasAnyPermission(permissions: ["platform:billing:read"], allowScoped: true)
   getAggregatedWorkflowResourceConsumption(
     filters: GetAggregatedWorkflowResourceConsumptionFilters!
-  ): [AggregatedWorkflowResourceConsumption]! @isAuthenticated
+  ): [AggregatedWorkflowResourceConsumption]!
+    @isAuthenticated
+    @hasAnyPermission(permissions: ["platform:billing:read"], allowScoped: true)
   getOffchainWorkflowById(
     request: GetOffchainWorkflowByIdRequest!
-  ): GetOffchainWorkflowByIdResponse! @isUngatedOrganization
+  ): GetOffchainWorkflowByIdResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   getOffchainWorkflowByOwnerAndName(
     request: GetOffchainWorkflowByOwnerAndNameRequest!
-  ): GetOffchainWorkflowByOwnerAndNameResponse! @isUngatedOrganization
+  ): GetOffchainWorkflowByOwnerAndNameResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   getOffchainWorkflowByName(
     request: GetOffchainWorkflowByNameRequest!
-  ): GetOffchainWorkflowByNameResponse! @isUngatedOrganization
+  ): GetOffchainWorkflowByNameResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
   listOffchainWorkflows(
     request: ListOffchainWorkflowsRequest!
-  ): ListOffchainWorkflowsResponse! @isUngatedOrganization
+  ): ListOffchainWorkflowsResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:read"])
+  """
+  Organization keys registered with the Address Registry.
+  """
+  organizationKeys(page: Page): ListOrganizationKeysResponse!
+    @hasAnyPermission(permissions: ["platform:owner_address:read"])
+  """
+  Active key and ownership proof for a given key address.
+  """
+  getActiveKeyProof(
+    keyAddress: OnchainAddress!
+    chainSelector: ChainSelector
+  ): GetActiveKeyProofResponse!
+    @hasAnyPermission(permissions: ["platform:owner_address:read"])
 }
 
 type Mutation {
@@ -168,23 +275,37 @@ type Mutation {
     displayName: LabelText! @length(min: 1, max: 100)
   ): UpdateAccountDetailsResponse!
   updateOrganizationDetails(
-    displayName: LabelText! @length(min: 1, max: 100)
+    displayName: LabelText @length(min: 1, max: 100)
   ): UpdateOrganizationDetailsResponse!
+    @hasAnyPermission(permissions: ["platform:organization:write"])
   inviteOrganizationMembers(
     members: [OrganizationAccountInviteParams!]! @length(min: 1, max: 10)
-  ): InviteOrganizationMembersResponse! @hasAnyRole(roleIds: ["platform:root"])
+  ): InviteOrganizationMembersResponse!
+    @hasAnyPermission(permissions: ["platform:member_invite:write"])
   removeOrganizationMembers(
     memberIds: [MemberId!]! @length(min: 1, max: 10)
-  ): RemoveOrganizationMembersResponse! @hasAnyRole(roleIds: ["platform:root"])
+  ): RemoveOrganizationMembersResponse!
+    @hasAnyPermission(permissions: ["platform:member:write"])
   createApiKey(request: CreateApiKeyRequest!): CreateApiKeyResponse!
     @isUngatedOrganization
+    @hasAnyPermission(permissions: ["platform:api_key:write"])
   updateApiKey(request: UpdateApiKeyRequest!): UpdateApiKeyResponse!
     @isUngatedOrganization
+    @hasAnyPermission(permissions: ["platform:api_key:write"])
   revokeApiKey(
     apiKeyId: CredentialText! @length(min: 1, max: 255)
   ): RevokeApiKeyResponse!
+    @hasAnyPermission(permissions: ["platform:api_key:write"])
   rotateApiKey(request: RotateApiKeyRequest!): RotateApiKeyResponse!
     @isUngatedOrganization
+    @hasAnyPermission(permissions: ["platform:api_key:write"])
+  updateMemberRoles(
+    request: UpdateMemberRolesRequest!
+  ): UpdateMemberRolesResponse!
+    @hasAnyPermission(
+      permissions: ["platform:member_role:write"]
+      allowScoped: true
+    )
   createVaultAuthorizationUrl(
     request: VaultAuthorizationUrlRequest!
   ): VaultAuthorizationUrlResponse!
@@ -193,50 +314,105 @@ type Mutation {
       claimName: "claim_vault_secret_management_enabled"
       values: ["true"]
     )
+    @hasAnyPermission(permissions: ["cre:secret:read", "cre:secret:write"])
   exchangeAuthCodeToToken(
     request: AuthCodeTokenExchangeRequest!
   ): AuthCodeTokenExchangeResponse! @isUngatedOrganization
+  upsertOrganizationLimit(
+    input: UpsertOrganizationLimitInput!
+  ): UpsertOrganizationLimitResponse!
+    @hasAnyPermission(permissions: ["platform:limits:write"], allowScoped: true)
+  deleteOrganizationLimit(
+    input: DeleteOrganizationLimitInput!
+  ): DeleteOrganizationLimitResponse!
+    @hasAnyPermission(permissions: ["platform:limits:write"], allowScoped: true)
   updateLinkedOwnerMetadata(
     request: UpdateOwnerMetadataRequest!
-  ): UpdateOwnerMetadataResponse! @isUngatedOrganization
+  ): UpdateOwnerMetadataResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["platform:owner_address:linking:write/cre"])
   initiateLinking(request: InitiateLinkingRequest!): InitiateLinkingResponse!
     @isUngatedOrganization
+    @hasAnyPermission(permissions: ["platform:owner_address:linking:write/cre"])
   initiateUnlinking(
     request: InitiateUnlinkingRequest!
   ): InitiateUnlinkingResponse!
+    @hasAnyPermission(permissions: ["platform:owner_address:linking:write/cre"])
+  initiateOrganizationKeyLink(
+    request: InitiateOrganizationKeyLinkRequest!
+  ): InitiateOrganizationKeyLinkResponse!
+    @hasAnyPermission(
+      permissions: ["platform:owner_address:linking:write"]
+      allowScoped: true
+    )
+  completeOrganizationKeyLink(
+    request: CompleteOrganizationKeyLinkRequest!
+  ): CompleteOrganizationKeyLinkResponse!
+    @hasAnyPermission(
+      permissions: ["platform:owner_address:linking:write"]
+      allowScoped: true
+    )
+  initiateOrganizationKeyUnlink(
+    request: InitiateOrganizationKeyUnlinkRequest!
+  ): InitiateOrganizationKeyUnlinkResponse!
+    @hasAnyPermission(
+      permissions: ["platform:owner_address:linking:write"]
+      allowScoped: true
+    )
+  completeOrganizationKeyUnlink(
+    request: CompleteOrganizationKeyUnlinkRequest!
+  ): CompleteOrganizationKeyUnlinkResponse!
+    @hasAnyPermission(
+      permissions: ["platform:owner_address:linking:write"]
+      allowScoped: true
+    )
   upsertOffchainWorkflow(
     request: UpsertOffchainWorkflowRequest!
-  ): UpsertOffchainWorkflowResponse! @isUngatedOrganization
+  ): UpsertOffchainWorkflowResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:write/private_registry"])
   pauseOffchainWorkflow(
     request: PauseOffchainWorkflowRequest!
-  ): PauseOffchainWorkflowResponse! @isUngatedOrganization
+  ): PauseOffchainWorkflowResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:write/private_registry"])
   activateOffchainWorkflow(
     request: ActivateOffchainWorkflowRequest!
-  ): ActivateOffchainWorkflowResponse! @isUngatedOrganization
+  ): ActivateOffchainWorkflowResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:write/private_registry"])
   deleteOffchainWorkflow(
     request: DeleteOffchainWorkflowRequest!
-  ): DeleteOffchainWorkflowResponse! @isUngatedOrganization
+  ): DeleteOffchainWorkflowResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:write/private_registry"])
   """
   Generate a presigned POST URL for uploading artifacts
   for a workflow.
   """
   generatePresignedPostUrlForArtifact(
     artifact: GeneratePresignedPostUrlRequest!
-  ): GeneratePresignedPostUrlResponse! @isUngatedOrganization
+  ): GeneratePresignedPostUrlResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:artifact:write"])
   """
   Generate a presigned GET URL for downloading artifacts
   for a workflow.
   """
   generatePresignedGetUrlForArtifact(
     artifact: GeneratePresignedGetUrlRequest!
-  ): GeneratePresignedGetUrlResponse! @isUngatedOrganization
+  ): GeneratePresignedGetUrlResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:artifact:read"])
   """
   Generate an unsigned GET URL for referencing artifacts
   for a workflow.
   """
   generateUnsignedGetUrlForArtifact(
     artifact: GenerateUnsignedGetUrlRequest!
-  ): GenerateUnsignedGetUrlResponse! @isUngatedOrganization
+  ): GenerateUnsignedGetUrlResponse!
+    @isUngatedOrganization
+    @hasAnyPermission(permissions: ["cre:workflow:artifact:read"])
   reportUserEvent(event: UserEventInput!): ReportUserEventResponse!
   requestDeploymentAccess(
     input: RequestDeploymentAccessInput!
@@ -253,11 +429,12 @@ enum MemberStatus {
   INVITED
   JOINED
   REMOVED
+  INVITE_EXPIRED
 }
 
 enum MemberType {
-  ROOT
-  ADMIN
+  ROOT @deprecated(reason: "Use memberRoleIds instead")
+  ADMIN @deprecated(reason: "Use memberRoleIds instead")
 }
 
 enum OrganizationRestrictionStatus {
@@ -337,6 +514,21 @@ enum WorkflowExecutionClassifiedStatus {
   SYSTEM_ERROR
 }
 
+"""
+Refines WorkflowExecutionStatus with whether the execution carried any error detail, so a clean
+success can be told apart from one that errored, and a failure that explains itself from one that
+does not.
+
+Can be null, fall back to status in that case rather than rendering it as a distinct state.
+"""
+enum WorkflowExecutionDetailedStatus {
+  UNSPECIFIED
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+  FAILED_NO_DETAIL
+}
+
 enum MeasurementUnit {
   MEASUREMENT_UNIT_UNSPECIFIED
   MEASUREMENT_UNIT_BYTES
@@ -381,7 +573,7 @@ type OrganizationAccount {
   organizationId: OrganizationId!
   emailAddress: Email!
   displayName: LabelText!
-  memberType: MemberType
+  memberType: MemberType @deprecated(reason: "Use memberRoleIds instead")
   memberStatus: MemberStatus!
   createdAt: Time!
   updatedAt: Time!
@@ -390,6 +582,7 @@ type OrganizationAccount {
   joinedAt: Time
   removedByUser: UserId
   removedAt: Time
+  memberRoleIds: [RoleId!]!
 }
 
 type UpdateAccountDetailsResponse {
@@ -418,6 +611,10 @@ type RemoveOrganizationMembersResponse {
   success: Boolean!
 }
 
+type UpdateMemberRolesResponse {
+  success: Boolean!
+}
+
 type OrganizationApiKeyDetails {
   apiKeyId: ID!
   organizationId: OrganizationId!
@@ -428,6 +625,8 @@ type OrganizationApiKeyDetails {
   expiresAt: Time!
   generatedAt: Time!
   activeStatus: EntityActiveStatus!
+  permissions: [String!]!
+  createdByUser: String!
 }
 
 type VerifyApiKeyResponse {
@@ -453,12 +652,42 @@ type RotateApiKeyResponse {
   apiKeyToken: CredentialText!
 }
 
+type OrganizationLimit {
+  organizationId: OrganizationId!
+  limitKey: String!
+  limitValue: JSON!
+  version: Int!
+  changedBy: String!
+  createdAt: Time!
+  updatedAt: Time!
+  isActive: Boolean!
+}
+
+input UpsertOrganizationLimitInput {
+  limitKey: String! @length(min: 1, max: 100)
+  limitValue: JSON!
+}
+
+input DeleteOrganizationLimitInput {
+  limitKey: String! @length(min: 1, max: 100)
+}
+
+type DeleteOrganizationLimitResponse {
+  success: Boolean!
+}
+
+type UpsertOrganizationLimitResponse {
+  success: Boolean!
+  version: Int!
+}
+
 input VaultAuthorizationUrlRequest {
   codeChallenge: CredentialText! @length(min: 1, max: 255)
   redirectUri: String! @length(min: 1, max: 255)
   requestDigest: String! @length(min: 1, max: 255)
   workflowOwnerAddress: OnchainAddress
   permission: VaultPermission!
+  state: String @length(min: 1, max: 255)
 }
 
 type VaultAuthorizationUrlResponse {
@@ -529,8 +758,10 @@ type WorkflowActivityRow {
 
 input WorkflowActivityInput {
   workflowUUID: String @length(min: 1, max: 255)
-  from: Time
-  to: Time
+  "Start of the activity range. Required."
+  from: Time!
+  "End of the activity range. Must be after `from`. Required."
+  to: Time!
 }
 
 type WorkflowActivityOutput {
@@ -652,6 +883,17 @@ type WorkflowExecution {
   errors: [ExecutionError]
   executedInTee: Boolean
   classifiedStatus: WorkflowExecutionClassifiedStatus
+  detailedStatus: WorkflowExecutionDetailedStatus
+  """
+  Returned when querying a single execution; null on list results.
+  """
+  capabilityCounts: WorkflowExecutionCapabilityCounts
+}
+
+type WorkflowExecutionCapabilityCounts {
+  total: Int!
+  completed: Int!
+  failed: Int!
 }
 
 enum WorkflowExecutionOrderByField {
@@ -668,6 +910,9 @@ input WorkflowExecutionOrderBy {
 
 input WorkflowExecutionsInput {
   workflowUuid: String @length(min: 1, max: 255)
+  workflowExecutionIds: [String!]
+    @length(min: 0, max: 50)
+    @nestedLength(min: 0, max: 255)
   status: [WorkflowExecutionStatus!] @length(min: 0, max: 10)
   search: String @length(min: 1, max: 255)
   from: Time
@@ -687,6 +932,57 @@ input WorkflowExecutionInput {
 
 type WorkflowExecutionOutput {
   data: WorkflowExecution
+}
+
+input WorkflowByDeploymentIdInput {
+  workflowId: WorkflowId!
+}
+
+type WorkflowByDeploymentIdOutput {
+  data: WorkflowRef!
+}
+
+input WorkflowDeploymentByIdInput {
+  workflowId: WorkflowId!
+}
+
+type WorkflowDeploymentByIdOutput {
+  data: WorkflowDeploymentRef!
+}
+
+input WorkflowExecutionByIdInput {
+  workflowExecutionId: String! @length(min: 1, max: 255)
+}
+
+type WorkflowExecutionByIdOutput {
+  data: WorkflowExecutionRef!
+}
+
+type WorkflowRef {
+  uuid: String!
+  workflowId: WorkflowId!
+  name: String!
+  ownerAddress: OnchainAddress!
+  status: WorkflowDeploymentStatus!
+  registeredAt: Time!
+}
+
+type WorkflowDeploymentRef {
+  uuid: String!
+  workflowUUID: String!
+  workflowId: WorkflowId!
+  status: WorkflowDeploymentStatus!
+  deployedAt: Time!
+}
+
+type WorkflowExecutionRef {
+  uuid: String!
+  workflowUUID: String!
+  id: String!
+  workflowId: WorkflowId!
+  status: WorkflowExecutionStatus!
+  startedAt: Time!
+  finishedAt: Time
 }
 
 type WorkflowExecutionLog {
@@ -739,38 +1035,56 @@ input WorkflowOwnersFilters {
 input Page {
   number: Int = 0 @size(min: 0)
   size: Int = 10 @size(min: 1, max: 100)
+  cursor: Cursor
 }
 
 input OrganizationMemberFilters {
   memberStatus: [MemberStatus!] @length(min: 0, max: 10)
-  memberType: [MemberType!] @length(min: 0, max: 10)
+  memberType: [MemberType!]
+    @length(min: 0, max: 10)
+    @deprecated(reason: "Use memberRoleIds instead")
+  memberRoleIds: [RoleId!] @length(min: 0, max: 10)
+}
+
+input OrganizationLimitFilters {
+  limitKeys: [String!] @length(min: 0, max: 100) @nestedLength(min: 0, max: 255)
 }
 
 input OrganizationAccountInviteParams {
   emailAddress: Email!
   displayName: LabelText @length(min: 1, max: 100)
+  roles: [RoleId!] @length(min: 0, max: 10)
 }
 
 input CreateApiKeyRequest {
-  expiryDate: Time!
   displayName: LabelText @length(min: 1, max: 100)
+  permissions: [String!]!
+    @length(min: 1, max: 100)
+    @nestedLength(min: 1, max: 255)
 }
 
 input UpdateApiKeyRequest {
   apiKeyId: CredentialText! @length(min: 1, max: 255)
-  expiryDate: Time
   displayName: LabelText @length(min: 1, max: 100)
+  permissions: [String!]
+    @length(min: 0, max: 100)
+    @nestedLength(min: 1, max: 255)
 }
 
 input RotateApiKeyRequest {
   apiKeyId: CredentialText! @length(min: 1, max: 255)
-  expiryDate: Time
 }
 
 input OrganizationApiKeyFilters {
   apiKeyScope: OrganizationApiKeyScope
   includeExpired: Boolean
   activeStatus: [EntityActiveStatus!] @length(min: 0, max: 10)
+}
+
+input UpdateMemberRolesRequest {
+  memberId: MemberId!
+  addedRoles: [RoleId!] @length(min: 0, max: 10)
+  removedRoles: [RoleId!] @length(min: 0, max: 10)
 }
 
 input UpdateOwnerMetadataRequest {
@@ -849,7 +1163,7 @@ input OffchainWorkflowInput {
   configUrl: String @length(min: 0, max: 200)
   tag: String @length(min: 0, max: 32)
   attributes: String @length(min: 0, max: 1024)
-  donFamily: String! @length(min: 1)
+  donFamily: String! @length(min: 1, max: 256)
 }
 
 type OffchainWorkflow {
@@ -1093,4 +1407,158 @@ type TenantConfig {
   capabilitiesRegistry: OnChainContract!
   registries: [Registry!]!
   forwarders: [Forwarder!]!
+}
+
+"""
+RBAC definition to indicate supported roles & permissions
+"""
+type PermissionDefinition {
+  name: String!
+  description: String!
+  enableInApiKey: Boolean!
+  group: String!
+}
+
+type RoleDefinition {
+  roleId: String!
+  displayName: String!
+  description: String!
+  permissions: [String!]!
+}
+
+type RequiredMetadataDefinition {
+  key: String!
+  values: [String!]!
+}
+
+type ProductRBACDefinition {
+  displayName: String!
+  productId: String!
+  permissions: [PermissionDefinition!]!
+  roles: [RoleDefinition!]!
+  requiredMetadata: [RequiredMetadataDefinition!]
+  suggestedRoleId: String
+}
+
+enum KeyLinkStatus {
+  KEY_LINK_STATUS_UNSPECIFIED
+  KEY_LINK_STATUS_PENDING
+  KEY_LINK_STATUS_VERIFIED
+  KEY_LINK_STATUS_REVOKED
+}
+
+enum ProofPurpose {
+  PROOF_PURPOSE_UNSPECIFIED
+  PROOF_PURPOSE_LINK
+  PROOF_PURPOSE_UNLINK
+}
+
+enum ProofStatus {
+  PROOF_STATUS_UNSPECIFIED
+  PROOF_STATUS_PENDING
+  PROOF_STATUS_SUCCESSFUL
+  PROOF_STATUS_EXPIRED
+  PROOF_STATUS_CANCELLED
+}
+
+"""
+A key linked to an organization via the Address Registry.
+"""
+type OrganizationKey {
+  organizationId: OrganizationId!
+  keyAddress: OnchainAddress!
+  chainSelector: ChainSelector
+  status: KeyLinkStatus!
+  displayName: LabelText!
+  createdBy: String!
+  verifiedAt: Time!
+  revokedAt: Time
+  createdAt: Time!
+}
+
+"""
+Proof of key ownership for an organization key.
+"""
+type KeyOwnershipProof {
+  proofId: String!
+  proofHash: String
+  challengeNonce: String!
+  challengeExpiresAt: Time
+  proofType: String!
+  proofStatus: ProofStatus!
+  proofPurpose: ProofPurpose!
+  verifiedAt: Time
+}
+
+input InitiateOrganizationKeyLinkRequest {
+  keyAddress: OnchainAddress!
+  chainSelector: ChainSelector
+  displayName: LabelText @length(min: 1, max: 100)
+}
+
+input CompleteOrganizationKeyLinkRequest {
+  keyAddress: OnchainAddress!
+  chainSelector: ChainSelector
+  signature: String! @length(min: 1, max: 10000)
+}
+
+input InitiateOrganizationKeyUnlinkRequest {
+  keyAddress: OnchainAddress!
+  chainSelector: ChainSelector
+}
+
+input CompleteOrganizationKeyUnlinkRequest {
+  keyAddress: OnchainAddress!
+  chainSelector: ChainSelector
+  signature: String! @length(min: 1, max: 10000)
+}
+
+"""
+Response from initiating an organization key link.
+"""
+type InitiateOrganizationKeyLinkResponse {
+  proofId: String!
+  typedDataJson: JSON!
+  nonce: String!
+  expiresAt: Time!
+}
+
+"""
+Response from completing an organization key link.
+"""
+type CompleteOrganizationKeyLinkResponse {
+  key: OrganizationKey!
+}
+
+"""
+Response from initiating an organization key unlink.
+"""
+type InitiateOrganizationKeyUnlinkResponse {
+  proofId: String!
+  typedDataJson: JSON!
+  nonce: String!
+  expiresAt: Time!
+}
+
+"""
+Response from completing an organization key unlink.
+"""
+type CompleteOrganizationKeyUnlinkResponse {
+  key: OrganizationKey!
+}
+
+"""
+Paginated response of organization keys.
+"""
+type ListOrganizationKeysResponse {
+  keys: [OrganizationKey!]!
+  nextCursor: Cursor
+}
+
+"""
+Response containing the active organization key and its ownership proof.
+"""
+type GetActiveKeyProofResponse {
+  key: OrganizationKey!
+  proof: KeyOwnershipProof!
 }
